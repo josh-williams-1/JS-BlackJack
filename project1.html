@@ -1,0 +1,494 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
+<TITLE>Blackjack by Josh Williams</TITLE>
+
+<SCRIPT LANGUAGE="JavaScript">
+/* 
+CS316 program 1
+
+I ran my hit() algorithm with a loop of 10000 hands 10 times
+at got 52%. This is if pushes are considered wins.
+If they are not counted as wins, it's ~42%.
+
+Testing was done with 1 deck and 6 decks.
+Change NUMDECKS if you like.
+*/
+
+var DSIZE = 52; //size of deck
+var NUMDECKS = 1; //Number of decks of size DSIZE
+var TOTAL_CARDS = DSIZE * NUMDECKS;
+var shoe = new Array(DSIZE * NUMDECKS); //shoe of cards to be shuffled
+var card_start = new Array(DSIZE * NUMDECKS); //starting deck in order
+var cc = 0; 	//index into card array during play
+
+var player_score = 0;
+var dealer_score = 0;
+var player_hand = new Array(1);
+var dealer_hand = new Array(1);
+
+var wins = 0;
+var total_hands = 0;
+var win_ratio = 0;
+
+var round_over = false;
+
+
+//Preconditions: shuffle if pressed
+//Postconditions:Card array filled and shuffled
+function shuffle(show_winner){  
+
+	if(show_winner){
+		alert("Deck re-shuffled");
+	}
+
+	//fill cardstart array
+	//cardstart is unshuffled 1,2,3..52, 1, 2, ... 52, 1, 2...
+	for (var i = 0; i < TOTAL_CARDS; i++) {
+		card_start[i] = i % DSIZE + 1;
+	}
+	
+	//select card randomly from cardstart and put in card
+	var randcard;
+	for (var j = 0; j < TOTAL_CARDS; j++) {
+		randcard = Math.round(Math.random() * (TOTAL_CARDS - j - 1) % 51); //choose card
+		shoe[j] = card_start[randcard]; //store random card
+		card_start.splice(randcard, 1); //pack array
+	}  
+	cc = 0;
+
+}
+
+//reset all variables, screen fields to start fresh
+function reset_data(show_winner) {
+ 			
+	dealer_cards = "";
+	player_cards = "";	
+	document.getElementById("dealer_cards").innerHTML = dealer_cards;	
+	document.getElementById("player_cards").innerHTML = player_cards;	
+	
+	player_score = 0;
+	dealer_score = 0;
+	document.JForm.dealer_score.value = dealer_score;
+ 	document.JForm.player_score.value = player_score;
+
+	wins = 0;	
+	total_hands = 0;
+	win_ratio = 100;
+	
+	document.JForm.player_win.value = "";
+ 	document.JForm.win_ratio.value = win_ratio;
+	
+	shuffle(show_winner);
+}
+
+
+
+// Preconditions: 1 <= card <= 52
+// Postconditions: Card value returned
+function calculate(card) {
+
+	var value; // numerical value of card
+	if (card <= 4) {    // ace
+		value = 11;
+		return value; 
+	}
+	if (card <= 20) {   // face card or 10
+		value = 10;
+		return value;
+	}
+	if (card <= 24) {  // 9, and so forth
+		value = 9;
+		return value;
+	}    
+	if (card <= 28) {
+		value = 8;
+		return value;
+	}      
+	if (card <= 32) {
+		value = 7;
+		return value;
+	}    
+	if (card <= 36) {
+		value = 6;
+		return value;
+	}    
+	if (card <= 40) {
+		value = 5;
+		return value;
+	}    
+	if (card <= 44) {
+		value = 4;
+		return value;
+	}    
+	if (card <= 48) {
+		value = 3;
+		return value;
+	}   
+	value = 2;          // only 2 left
+	return value; 
+}
+
+
+function get_card() {
+	
+	//if player is bust or has won return 0 card to indicate no card was drawn
+	if(player_score >= 21){
+		return -1; 
+	}
+	
+	//else return the next card in the deck	
+	return shoe[cc++];
+}
+
+
+// When a card is drawn, check to see if
+// the card makes the player bust. If so,
+// try to change the value of an ace to a 1.
+//
+// Returns new score.
+//
+// Apparently JS doesn't have pass by reference,
+// but arrays can be modified by .splice()
+function check_score(hand, score){
+
+	if(score > 21){
+		for(var i = 0; i < hand.length; i++){
+			if(hand[i] == 11){
+				hand.splice(i, 1, 1); // replace 11 with 1.
+				score -= 10;
+				break;
+			}
+		}
+	}	
+	return score;
+}
+
+
+// plays 1000 hands
+function run1000(){
+  
+	reset_data(false);
+  for(var i = 0; i < 1000; i++){
+		deal(false); //doesn't give shuffle alert
+		
+		get_card = hit(player_hand, dealer_hand);
+		
+		while(get_card){
+			card = shoe[cc++];
+			player_score += calculate(card);
+			player_hand.splice(-1, 0, calculate(card));
+			
+			get_card = hit(player_hand, dealer_hand);
+		}
+
+		run(false); //don't display results 
+	}   
+	
+	// update screen		
+ 	document.JForm.win_ratio.value = Math.round(win_ratio);
+ 
+}
+
+
+// called only by run1000
+// player's turn
+// determine to hit or stay based
+// on both hands.
+//
+// assume dealer_hand[1] is hidden
+//
+// average win rate = 52%
+function hit(player_hand, dealer_hand) {
+
+	var get_card;
+	var dealer_card = dealer_hand[0];
+	
+	if(player_score <= 11){
+		get_card = true;
+	}
+	// if ace
+	else if(dealer_card == 11 || dealer_card == 1){
+		// very likely that dealer has 17+
+		if(player_score < 16){
+			get_card = true;
+		}
+		else{
+			get_card = false;
+		}
+	}
+	// likely that the dealer will bust
+	else if(dealer_card <= 6){
+		get_card = false; // so stay
+	}
+	// if dealer has 7 - 10,  (17-20)
+	else if(dealer_card >= 7 && player_score <= 16){
+		// if(player_score == 16) is the case were the probability of winning
+		// is the same whether you hit or stay. This is where you can use
+		// your "gut feeling" (or card counting) to get ahead.
+		get_card = true;
+	}
+	else{
+		get_card = false;
+	}
+		
+	player_score = check_score(player_hand, player_score);
+
+	return get_card;
+}
+
+
+// Player gets another card if not bust or won 
+// called by button press
+function player_hit() {
+	
+	card = get_card(); //-1 means fail
+	if(card == -1 || round_over){
+		alert("You cannot hit anymore.");	
+		return;
+	}
+
+	// add card to hand	
+	player_hand.splice(-1, 0, calculate(card));
+	player_score += calculate(card);
+
+	// Check for bust and try to change aces' values.
+	player_score = check_score(player_hand, player_score);
+	
+	new_card = "<img src = '" + card + ".png' />";
+	document.getElementById("player_cards").innerHTML += new_card;
+
+	// if player can no longer hit, call run() instead of waiting on the player
+	if(player_score > 21){
+		document.JForm.player_score.value = "BUST";
+		run(true);
+	}
+	else{
+	 	document.JForm.player_score.value = player_score;
+		if(player_score == 21){
+			run(true);
+		}
+	}
+
+	return;
+
+}
+
+
+// dealer's turn
+// determines winner
+// displays results if show_winner is true
+function run(show_winner){
+
+	// if the player presses stay more than once.
+	if(round_over){
+		alert("Round is already over");
+		return;
+	}
+
+	var card;
+	var new_cards = "";
+	var win_value = "";
+
+	while(dealer_score < 17 && player_score < 21){		
+		// add card to hand	
+		card = shoe[cc++];
+		dealer_hand.push(calculate(card));
+		dealer_score += calculate(card);
+
+		// Attempts to change aces' values to 11 if bust.
+		dealer_score = check_score(dealer_hand, dealer_score);	
+		
+		new_cards += "<img src = '"+ card +".png' />";
+
+	}
+	
+	// determine winner. win_value is a string representing
+	// the player's win status.		
+	if(dealer_score == player_score){
+		win_value = "Push";
+		wins++;
+	}
+	else if(dealer_score > player_score && dealer_score <= 21){
+		win_value = "Loss";
+	}
+	else if(player_score > 21){
+		win_value = "Loss";
+	}
+	else{
+		win_value = "Win";
+		wins++;
+	}
+	
+	total_hands++;
+	win_ratio = wins/total_hands * 100.0;
+
+	//only show winner and update UI if not running multiple times
+	if(show_winner){ 
+		document.getElementById("dealer_cards").innerHTML += new_cards;
+ 	  document.JForm.dealer_score.value = dealer_score;
+ 		document.JForm.win_ratio.value = Math.round(win_ratio);
+ 		document.JForm.player_win.value = win_value;
+		round_over = true;
+	}
+			
+}
+
+
+// called at page load or on button press
+// deal 2 cards to dealer and player
+function deal(show_winner){
+
+	round_over = false;	
+	if((TOTAL_CARDS * 0.8) < cc){ 	//if only 20% of the deck is left, shuffle
+		if(show_winner){
+			alert("Too few cards left - shuffling cards");
+		}
+		shuffle(false);
+	}
+	
+	d_card_0 = shoe[cc++];
+	d_card_1 = shoe[cc++];
+
+	p_card_0 = shoe[cc++];
+	p_card_1 = shoe[cc++];
+
+	dealer_cards = "<img src = '" + d_card_0 + ".png' />";
+	dealer_cards += "<img src = '" + d_card_1 + ".png' />";
+	
+	player_cards = "<img src = '" + p_card_0 + ".png' />";
+	player_cards += "<img src = '" + p_card_1 + ".png' />";
+
+	// clear the hands of each player and add new cards
+	dealer_hand.splice(0, dealer_hand.length, calculate(d_card_0), calculate(d_card_1));
+	player_hand.splice(0, player_hand.length, calculate(p_card_0), calculate(p_card_1));
+	
+	// if dealt 2 aces, make second one's value = 1
+	if(dealer_hand[0] == 11 && dealer_hand[1] == 11){
+		dealer_hand[1] = 1;
+	}
+	if(player_hand[0] == 11 && player_hand[1] == 11){
+		player_hand[1] = 1;
+	}
+
+	dealer_score = 0;
+	player_score = 0;	
+	for(var i = 0; i < 2; i++){	
+		dealer_score += dealer_hand[i];
+		player_score += player_hand[i];
+	}
+	
+	if(show_winner){
+		// update score boxes
+ 		document.JForm.dealer_score.value = dealer_score;
+ 		document.JForm.player_score.value = player_score;
+		document.JForm.player_win.value = "";
+ 	
+		// Display cards on screen
+ 		document.getElementById("dealer_cards").innerHTML = dealer_cards; 
+ 		document.getElementById("player_cards").innerHTML = player_cards; 
+		
+		if(player_score == 21 || dealer_score == 21){
+			run(show_winner);
+		}
+	}
+	
+	
+}
+
+
+
+</SCRIPT>
+</HEAD>
+
+<BODY >
+<FORM NAME="JForm">
+<CENTER>
+	<TABLE CELLPADDING=2 CELLSPACING=2 STYLE="page-break-before: always">
+		<TR>
+			<TH STYLE="border: none; padding: 0in">
+				<P>New deal</P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in"> 
+				<P><INPUT TYPE=BUTTON VALUE="Deal"  STYLE="width: 1.08in; height: 0.4in" ONCLICK="deal(true)"> </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=BUTTON VALUE="Shuffle" STYLE="width: 1.08in; height: 0.4in" ONCLICK="shuffle(true);"> </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=BUTTON VALUE="Reset" STYLE="width: 0.75in; height: 0.4in" ONCLICK="reset_data(true);"> </P>
+			</TH>
+		</TR><!-- row 1 -->
+		<TR>
+			<TH STYLE="border: none; padding: 0in">
+				<P>Dealer score: </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=TEXT NAME="dealer_score" VALUE="0" SIZE=5 STYLE="width: 0.51in; height: 0.31in"> </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P>Player score: </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=TEXT NAME="player_score" VALUE="0" SIZE=5 STYLE="width: 0.51in; height: 0.31in"> </P>
+			</TH>
+			<TD COLSPAN=2 VALIGN=TOP STYLE="border: none; padding: 0in"></TD>
+		</TR><!-- TD row 2 -->
+		<TR>
+			<TH STYLE="border: none; padding: 0in">
+				<P>Win/Loss?: </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=TEXT NAME="player_win" VALUE="" SIZE=5 STYLE="width: 0.51in; height: 0.31in"> </P>
+			</TH>
+<!--height<TD COLSPAN=2 VALIGN=TOP STYLE="border: none; padding: 0in"></TD>  -->
+			<TH STYLE="border: none; padding: 0in">
+				<P>Win %: </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in"> 
+				<P><INPUT TYPE=TEXT NAME="win_ratio" VALUE="100" SIZE=5 STYLE="width: 0.51in; height: 0.31in"> </P>
+			</TH>	
+			<TH STYLE="border: none; padding: 0in"></TH>
+			<TD VALIGN=TOP STYLE="border: none; padding: 0in"></TD>
+		</TR><!-- row 3 -->
+		<TR>
+			<TH STYLE="border: none; padding: 0in">
+				<P>Hit</P> 
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=BUTTON VALUE="Hit" STYLE="width: 0.64in; height: 0.4in" ONCLICK="player_hit();"> </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P>Stay</P> 
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=BUTTON VALUE="Stay" STYLE="width: 0.59in; height: 0.4in" ONCLICK="run(true);"> </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in"> 
+				<P>Run 1000 times</P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=BUTTON VALUE="Run" STYLE="width: 0.59in; height: 0.4in" ONCLICK="run1000();"> </P>
+			</TH>
+		</TR><!-- row 4 -->
+	</TABLE>
+</CENTER>
+</FORM>
+<h2 align=center>Dealer's Cards</h2>
+<div id="dealer_cards" align=center> 
+	<h2  align=center></h2>
+</div>
+<h2  align=center> My Cards</h2>
+<div id="player_cards" align=center >
+	<h2 class="WESTERN" align=center></h2>
+</div>
+
+<script>
+shuffle(false); 
+deal(true);
+</script>
+
+</BODY>
+</HTML>
+
